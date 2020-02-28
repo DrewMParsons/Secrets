@@ -37,7 +37,8 @@ mongoose.connect(process.env.URI,{
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-  googleId: String
+  googleId: String,
+  secret: String
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -93,18 +94,46 @@ app.get("/register",function(req,res){
 //Only created this route after adding authentication,cookies, and sessionsID with passport,
 // and express-session
 app.get("/secrets",function(req,res){
-  if(req.isAuthenticated()){
-    res.render("secrets");
-  }else{
-    res.redirect("/login");
-  }
+  User.find({"secret":{$ne:null}},function(err,foundUsers){
+    if(err){
+      console.log(err);
+    }else{
+      if(foundUsers){
+        res.render("secrets",{usersWithSecrets: foundUsers});
+      }
+    }
+  });
 });
 app.get("/logout",function(req,res){
   req.logout();
   res.redirect("/");
 });
 
+app.get("/submit",function(req,res){
+  if(req.isAuthenticated()){
+    res.render("submit");
+  }else{
+    res.redirect("/login");
+  }
+});
 
+app.post("/submit",function(req,res){
+  const newSecret = req.body.secret;
+
+  //get current user from passport which stores all the current session user info
+  User.findById(req.user.id,function(err,foundUser){
+    if(err){
+      console.log(err);
+    }else{
+      if(foundUser){
+        foundUser.secret = newSecret;
+        foundUser.save(function(){
+          res.redirect("/secrets");
+        });
+      }
+    }
+  });
+});
 app.post("/register",function(req,res){
   User.register({username: req.body.username}, req.body.password, function(err, user) {
   if (err) {
